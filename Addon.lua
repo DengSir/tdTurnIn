@@ -34,7 +34,8 @@ end
 
 function Addon:GetSetting(key)
     local settings = {
-        turnInDaily = true,
+        turnInDaily  = true,
+        turnInRepeat = true,
     }
     return settings[key]
 end
@@ -51,11 +52,9 @@ end
 function Addon:ChoiceAvailableQuest(...)
     for i = 1, select('#', ...), 7 do
         local questTitle, _, isTrivial, frequency, isRepeatable, isLegendary, isIgnored = select(i, ...)
-
-        local isDaily   = self:IsDaily(frequency)
         local isIgnored = isIgnored or self:IsQuestIgnored(questTitle)
 
-        if not isIgnored and not isRepeatable and (not isDaily or self:GetSetting('turnInDaily')) then
+        if not isIgnored and self:IsRepeatAllow(isRepeatable) and self:IsDailyAllow(frequency) then
             return SelectGossipAvailableQuest(math.floor(i/7) + 1) or true
         end
     end
@@ -107,10 +106,10 @@ function Addon.Handle:QUEST_GREETING()
 
     for i = 1, GetNumAvailableQuests() do
         local isTrivial, frequency, isRepeatable, isLegendary, isIgnored = GetAvailableQuestInfo(i)
-        local isDaily = self:IsDaily(frequency)
+        local isDaily = self:IsDailyAllow(frequency)
         local isIgnored = isIgnored or self:IsQuestIgnored(GetAvailableTitle(i))
 
-        if not isIgnored and not isRepeatable and (not isDaily or self:GetSetting('turnInDaily')) then
+        if not isIgnored and self:IsRepeatAllow(isRepeatable) and self:IsDailyAllow(frequency) then
             return SelectAvailableQuest(i)
         end
     end
@@ -132,6 +131,11 @@ function Addon:IsQuestIgnored(questTitle)
     return questTitle:find(L.IGNORED_QUEST_PREFIX, nil, true)
 end
 
-function Addon:IsDaily(frequency)
-    return frequency == LE_QUEST_FREQUENCY_DAILY or frequency == LE_QUEST_FREQUENCY_WEEKLY
+function Addon:IsDailyAllow(frequency)
+    local isDaily = frequency == LE_QUEST_FREQUENCY_DAILY or frequency == LE_QUEST_FREQUENCY_WEEKLY
+    return not isDaily or self:GetSetting('turnInDaily')
+end
+
+function Addon:IsRepeatAllow(isRepeatable)
+    return not isRepeatable or self:GetSetting('turnInRepeat')
 end
