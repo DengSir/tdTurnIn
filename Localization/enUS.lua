@@ -1,9 +1,11 @@
+
+local L = LibStub('AceLocale-3.0'):NewLocale('tdTurnIn', 'enUS')
+if not L then return end
+
+--@debug@
 --[[
-enUS.lua
-@Author  : DengSir (tdaddon@163.com)
-@Link    : https://dengsir.github.io
-]]
-
-local L = LibStub('AceLocale-3.0'):NewLocale('tdTurnIn', 'enUS', true)
-
-L.IGNORED_QUEST_PREFIX = 'Sealing Fate'
+--@end-debug@
+@localization(locale=""enUS", format="lua_additive_table", table-name="L", same-key-is-true=true)@
+--@debug@
+--]]
+--@end-debug@

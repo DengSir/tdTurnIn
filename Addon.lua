@@ -20,6 +20,50 @@ Addon.Handle = setmetatable({}, {__newindex = function(t, k, fn)
     end
 end})
 
+function Addon:OnInitialize()
+    local defaults = {
+        profile = {
+            turnInDaily  = true,
+            turnInRepeat = true,
+            autoTurnIn   = true,
+            modifierKey  = 'shift',
+        }
+    }
+
+    self.db = LibStub('AceDB-3.0'):New('TDDB_TURNIN', defaults, true)
+
+    local options = {
+        type = 'group',
+        name = 'tdTurnIn',
+        get = function(item)
+            return self.db.profile[item[#item]]
+        end,
+        set = function(item, value)
+            self.db.profile[item[#item]] = value
+        end,
+        args = {
+            turnInDaily = {
+                type  = 'toggle',
+                name  = L['Turn in daily quests'],
+                width = 'double',
+                order = 2,
+            },
+            turnInRepeat = {
+                type  = 'toggle',
+                name  = L['Turn in repeatable quest'],
+                width = 'double',
+                order = 3,
+            },
+        }
+    }
+
+    local registry = LibStub('AceConfigRegistry-3.0')
+    registry:RegisterOptionsTable('tdTurnIn Options', options)
+
+    local dialog = LibStub('AceConfigDialog-3.0')
+    dialog:AddToBlizOptions('tdTurnIn Options', 'tdTurnIn')
+end
+
 function Addon:OnEnable()
     self:RegisterEvent('GOSSIP_SHOW')
     self:RegisterEvent('QUEST_DETAIL')
@@ -33,11 +77,7 @@ function Addon:IsAllow()
 end
 
 function Addon:GetSetting(key)
-    local settings = {
-        turnInDaily  = true,
-        turnInRepeat = true,
-    }
-    return settings[key]
+    return self.db.profile[key]
 end
 
 function Addon:ChoiceActiveQuest(...)
@@ -73,7 +113,7 @@ function Addon.Handle:QUEST_DETAIL()
     end
     if QuestGetAutoAccept() then
         CloseQuest()
-    elseif not IsQuestIgnored() then
+    else--if not IsQuestIgnored() then
         AcceptQuest()
     end
 end
@@ -128,7 +168,11 @@ function Addon:HandleCall(fn, ...)
 end
 
 function Addon:IsQuestIgnored(questTitle)
-    return questTitle:find(L.IGNORED_QUEST_PREFIX, nil, true)
+    for _, v in ipairs(IGNORED_QUESTS) do
+        if questTitle:find(v, nil, true) then
+            return true
+        end
+    end
 end
 
 function Addon:IsDailyAllow(frequency)

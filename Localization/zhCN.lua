@@ -4,7 +4,7 @@ zhCN.lua
 @Link    : https://dengsir.github.io
 ]]
 
-local L = LibStub('AceLocale-3.0'):NewLocale('tdTurnIn', 'zhCN')
-if not L then return end
+local L = LibStub('AceLocale-3.0'):NewLocale('tdBattlePetScript', 'zhCN', true)
 
-L.IGNORED_QUEST_PREFIX = '封印命运'
+L['Turn in daily quests'] = '自动接受日常任务'
+L['Turn in repeatable quest'] = '自动接受可重复任务'
