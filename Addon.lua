@@ -5,7 +5,7 @@ Addon.lua
 ]]
 
 local ns             = select(2, ...)
-local IGNORED_QUESTS = ns.IGNORED_QUESTS
+local IGNORED_NPCS   = ns.IGNORED_NPCS
 local L              = LibStub('AceLocale-3.0'):GetLocale('tdTurnIn')
 
 local Addon = LibStub('AceAddon-3.0'):NewAddon('tdTurnIn', 'AceEvent-3.0')
@@ -117,7 +117,6 @@ end
 function Addon:ChoiceAvailableQuest(...)
     for i = 1, select('#', ...), 7 do
         local questTitle, _, isTrivial, frequency, isRepeatable, isLegendary, isIgnored = select(i, ...)
-        local isIgnored = isIgnored or self:IsQuestIgnored(questTitle)
 
         if not isIgnored and self:IsRepeatAllow(isRepeatable) and self:IsDailyAllow(frequency) then
             return SelectGossipAvailableQuest(math.floor(i/7) + 1) or true
@@ -133,29 +132,20 @@ function Addon.Handle:QUEST_DETAIL()
     if not self:GetSetting('turnInDaily') and (QuestIsDaily() or QuestIsWeekly()) then
         return
     end
-    if self:IsQuestIgnored(GetTitleText()) then
-        return
-    end
     if QuestGetAutoAccept() then
         CloseQuest()
-    else--if not IsQuestIgnored() then
+    else
         AcceptQuest()
     end
 end
 
 function Addon.Handle:QUEST_PROGRESS()
-    if self:IsQuestIgnored(GetTitleText()) then
-        return
-    end
     if IsQuestCompletable() then
         CompleteQuest()
     end
 end
 
 function Addon.Handle:QUEST_COMPLETE()
-    if self:IsQuestIgnored(GetTitleText()) then
-        return
-    end
     if GetNumQuestChoices() <= 1 then
         GetQuestReward(1)
     end
@@ -164,7 +154,7 @@ end
 function Addon.Handle:QUEST_GREETING()
     for i = 1, GetNumActiveQuests() do
         local title, isComplete = GetActiveTitle(i)
-        if isComplete and not self:IsQuestIgnored(title) then
+        if isComplete then
             return SelectActiveQuest(i)
         end
     end
@@ -172,7 +162,6 @@ function Addon.Handle:QUEST_GREETING()
     for i = 1, GetNumAvailableQuests() do
         local isTrivial, frequency, isRepeatable, isLegendary, isIgnored = GetAvailableQuestInfo(i)
         local isDaily = self:IsDailyAllow(frequency)
-        local isIgnored = isIgnored or self:IsQuestIgnored(GetAvailableTitle(i))
 
         if not isIgnored and self:IsRepeatAllow(isRepeatable) and self:IsDailyAllow(frequency) then
             return SelectAvailableQuest(i)
@@ -180,24 +169,31 @@ function Addon.Handle:QUEST_GREETING()
     end
 end
 
+function Addon:IsNpcIgnored()
+    local guid = UnitGUID('npc')
+    if not guid then
+        return true
+    end
+
+    local id = tonumber(guid:match('.-%-%d+%-%d+%-%d+%-%d+%-(%d+)'))
+    return IGNORED_NPCS[id]
+end
+
 function Addon:HandleCall(fn, ...)
     if not self:IsAllow() then
         return
     end
+
+    if self:IsNpcIgnored() then
+        return
+    end
+
     local args = {...}
     local argCount = select('#', ...)
 
     C_Timer.After(0, function()
-        fn(self, unpack(args, 1, argCount))
+        return fn(self, unpack(args, 1, argCount))
     end)
-end
-
-function Addon:IsQuestIgnored(questTitle)
-    for _, v in ipairs(IGNORED_QUESTS) do
-        if questTitle:find(v, nil, true) then
-            return true
-        end
-    end
 end
 
 function Addon:IsDailyAllow(frequency)
