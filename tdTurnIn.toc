@@ -1,6 +1,7 @@
-## Interface: 70100
+## Interface: 80000
 ## Title: tdTurnIn
 ## Author: DengSir
-## Version: 70100.01
+## Version: 80000.01
+## SavedVariables: TDDB_TURNIN
 
 Load.xml

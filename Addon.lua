@@ -25,7 +25,7 @@ function Addon:OnInitialize()
         profile = {
             turnInDaily  = true,
             turnInRepeat = true,
-            autoTurnIn   = true,
+            enable       = true,
             modifierKey  = 'shift',
         }
     }
@@ -42,6 +42,22 @@ function Addon:OnInitialize()
             self.db.profile[item[#item]] = value
         end,
         args = {
+            enable = {
+                type  = 'toggle',
+                name  = ENABLE,
+                width = 'double',
+                order = 1,
+                get = function()
+                    return self:IsEnabled()
+                end,
+                set = function(item, value)
+                    if value then
+                        self:Enable()
+                    else
+                        self:Disable()
+                    end
+                end
+            },
             turnInDaily = {
                 type  = 'toggle',
                 name  = L['Turn in daily quests'],
@@ -50,7 +66,7 @@ function Addon:OnInitialize()
             },
             turnInRepeat = {
                 type  = 'toggle',
-                name  = L['Turn in repeatable quest'],
+                name  = L['Turn in repeatable quests'],
                 width = 'double',
                 order = 3,
             },
@@ -62,6 +78,10 @@ function Addon:OnInitialize()
 
     local dialog = LibStub('AceConfigDialog-3.0')
     dialog:AddToBlizOptions('tdTurnIn Options', 'tdTurnIn')
+
+    if not self.db.profile.enable then
+        self:Disable()
+    end
 end
 
 function Addon:OnEnable()
@@ -70,6 +90,11 @@ function Addon:OnEnable()
     self:RegisterEvent('QUEST_PROGRESS')
     self:RegisterEvent('QUEST_COMPLETE')
     self:RegisterEvent('QUEST_GREETING')
+    self.db.profile.enable = true
+end
+
+function Addon:OnDisable()
+    self.db.profile.enable = false
 end
 
 function Addon:IsAllow()
@@ -138,8 +163,8 @@ end
 
 function Addon.Handle:QUEST_GREETING()
     for i = 1, GetNumActiveQuests() do
-        local _, isComplete = GetActiveTitle(i)
-        if isComplete then
+        local title, isComplete = GetActiveTitle(i)
+        if isComplete and not self:IsQuestIgnored(title) then
             return SelectActiveQuest(i)
         end
     end
