@@ -160,10 +160,14 @@ function Addon.Handle:QUEST_GREETING()
     end
 
     for i = 1, GetNumAvailableQuests() do
-        local isTrivial, frequency, isRepeatable, isLegendary, isIgnored = GetAvailableQuestInfo(i)
-        local isDaily = self:IsDailyAllow(frequency)
+        if GetAvailableQuestInfo then
+            local isTrivial, frequency, isRepeatable, isLegendary, isIgnored = GetAvailableQuestInfo(i)
+            local isDaily = self:IsDailyAllow(frequency)
 
-        if not isIgnored and self:IsRepeatAllow(isRepeatable) and self:IsDailyAllow(frequency) then
+            if not isIgnored and self:IsRepeatAllow(isRepeatable) and self:IsDailyAllow(frequency) then
+                return SelectAvailableQuest(i)
+            end
+        else
             return SelectAvailableQuest(i)
         end
     end
