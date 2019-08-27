@@ -132,7 +132,7 @@ function Addon.Handle:QUEST_DETAIL()
     if not self:GetSetting('turnInDaily') and (QuestIsDaily() or QuestIsWeekly()) then
         return
     end
-    if QuestGetAutoAccept() then
+    if QuestGetAutoAccept and QuestGetAutoAccept() then
         CloseQuest()
     else
         AcceptQuest()
