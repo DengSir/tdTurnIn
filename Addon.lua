@@ -3,32 +3,26 @@ Addon.lua
 @Author  : DengSir (tdaddon@163.com)
 @Link    : https://dengsir.github.io
 ]]
-
-local ns             = select(2, ...)
-local IGNORED_NPCS   = ns.IGNORED_NPCS
-local L              = LibStub('AceLocale-3.0'):GetLocale('tdTurnIn')
+ local ns = select(2, ...)
+local IGNORED_NPCS = ns.IGNORED_NPCS
+local L = LibStub('AceLocale-3.0'):GetLocale('tdTurnIn')
 
 local Addon = LibStub('AceAddon-3.0'):NewAddon('tdTurnIn', 'AceEvent-3.0')
 
-Addon.Handle = setmetatable({}, {__newindex = function(t, k, fn)
-    if type(fn) ~= 'function' then
-        return
-    end
+Addon.Handle = setmetatable({}, {
+    __newindex = function(t, k, fn)
+        if type(fn) ~= 'function' then
+            return
+        end
 
-    Addon[k] = function(_, ...)
-        Addon:HandleCall(fn, ...)
-    end
-end})
+        Addon[k] = function(_, ...)
+            Addon:HandleCall(fn, ...)
+        end
+    end,
+})
 
 function Addon:OnInitialize()
-    local defaults = {
-        profile = {
-            turnInDaily  = true,
-            turnInRepeat = true,
-            enable       = true,
-            modifierKey  = 'shift',
-        }
-    }
+    local defaults = {profile = {turnInDaily = true, turnInRepeat = true, enable = true, modifierKey = 'shift'}}
 
     self.db = LibStub('AceDB-3.0'):New('TDDB_TURNIN', defaults, true)
 
@@ -43,8 +37,8 @@ function Addon:OnInitialize()
         end,
         args = {
             enable = {
-                type  = 'toggle',
-                name  = ENABLE,
+                type = 'toggle',
+                name = ENABLE,
                 width = 'double',
                 order = 1,
                 get = function()
@@ -56,21 +50,11 @@ function Addon:OnInitialize()
                     else
                         self:Disable()
                     end
-                end
+                end,
             },
-            turnInDaily = {
-                type  = 'toggle',
-                name  = L['Turn in daily quests'],
-                width = 'double',
-                order = 2,
-            },
-            turnInRepeat = {
-                type  = 'toggle',
-                name  = L['Turn in repeatable quests'],
-                width = 'double',
-                order = 3,
-            },
-        }
+            turnInDaily = {type = 'toggle', name = L['Turn in daily quests'], width = 'double', order = 2},
+            turnInRepeat = {type = 'toggle', name = L['Turn in repeatable quests'], width = 'double', order = 3},
+        },
     }
 
     local registry = LibStub('AceConfigRegistry-3.0')
@@ -109,23 +93,49 @@ function Addon:ChoiceActiveQuest(...)
     for i = 1, select('#', ...), 6 do
         local _, _, _, isComplete = select(i, ...)
         if isComplete then
-            return SelectGossipActiveQuest(math.floor(i/6) + 1) or true
+            return SelectGossipActiveQuest(math.floor(i / 6) + 1) or true
         end
     end
+end
+
+local function ItemCount(id, count)
+    return function()
+        return GetItemCount(id) >= 3
+    end
+end
+
+local repeats = { --
+    ['铭记奥特兰克！'] = ItemCount(20560, 3),
+    ['战歌峡谷之战'] = ItemCount(20558, 3),
+}
+
+function Addon:IsComplete(questTitle)
+    return not repeats[questTitle] or repeats[questTitle]()
 end
 
 function Addon:ChoiceAvailableQuest(...)
     for i = 1, select('#', ...), 7 do
         local questTitle, _, isTrivial, frequency, isRepeatable, isLegendary, isIgnored = select(i, ...)
 
-        if not isIgnored and self:IsRepeatAllow(isRepeatable) and self:IsDailyAllow(frequency) then
-            return SelectGossipAvailableQuest(math.floor(i/7) + 1) or true
+        if not isIgnored and (not isRepeatable or self:IsComplete(questTitle)) and self:IsRepeatAllow(isRepeatable) and
+            self:IsDailyAllow(frequency) then
+            return SelectGossipAvailableQuest(math.floor(i / 7) + 1) or true
+        end
+    end
+end
+
+function Addon:ChoiceOption(...)
+    for i = 1, select('#', ...), 2 do
+        local name, type = select(i, ...)
+        if type == 'battlemaster' then
+            return SelectGossipOption(math.floor(i / 2) + 1) or true
         end
     end
 end
 
 function Addon.Handle:GOSSIP_SHOW()
-    return self:ChoiceActiveQuest(GetGossipActiveQuests()) or self:ChoiceAvailableQuest(GetGossipAvailableQuests())
+    return self:ChoiceActiveQuest(GetGossipActiveQuests()) or self:ChoiceAvailableQuest(GetGossipAvailableQuests()) or
+               self:ChoiceOption(GetGossipOptions())
 end
 
 function Addon.Handle:QUEST_DETAIL()
