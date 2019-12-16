@@ -89,15 +89,6 @@ function Addon:GetSetting(key)
     return self.db.profile[key]
 end
 
-function Addon:ChoiceActiveQuest(...)
-    for i = 1, select('#', ...), 6 do
-        local _, _, _, isComplete = select(i, ...)
-        if isComplete then
-            return SelectGossipActiveQuest(math.floor(i / 6) + 1) or true
-        end
-    end
-end
-
 local function ItemCount(id, count)
     return function()
         return GetItemCount(id) >= 3
@@ -107,28 +98,49 @@ end
 local repeats = { --
     ['铭记奥特兰克！'] = ItemCount(20560, 3),
     ['战歌峡谷之战'] = ItemCount(20558, 3),
+    ['水晶簇'] = ItemCount(17423, 5),
+    ['森林之王伊弗斯'] = ItemCount(17423, 1),
 }
 
 function Addon:IsComplete(questTitle)
     return not repeats[questTitle] or repeats[questTitle]()
 end
 
-function Addon:ChoiceAvailableQuest(...)
-    for i = 1, select('#', ...), 7 do
-        local questTitle, _, isTrivial, frequency, isRepeatable, isLegendary, isIgnored = select(i, ...)
+function Addon:Iterate(step, total)
+    local count = total / step
+    return coroutine.wrap(function()
+        for i = count, 1, -1 do
+            local s = step * (i - 1) + 1
+            coroutine.yield(i, s)
+        end
+    end)
+end
 
-        if not isIgnored and (not isRepeatable or self:IsComplete(questTitle)) and self:IsRepeatAllow(isRepeatable) and
-            self:IsDailyAllow(frequency) then
-            return SelectGossipAvailableQuest(math.floor(i / 7) + 1) or true
+function Addon:ChoiceActiveQuest(...)
+    for id, index in self:Iterate(6, select('#', ...)) do
+        local _, _, _, isComplete = select(index, ...)
+        if isComplete then
+            return SelectGossipActiveQuest(id) or true
+        end
+    end
+end
+
+function Addon:ChoiceAvailableQuest(...)
+    for id, index in self:Iterate(7, select('#', ...)) do
+        local questTitle, _, isTrivial, frequency, isRepeatable, isLegendary, isIgnored = select(index, ...)
+        print(id, index, questTitle)
+        if not isIgnored and (not isRepeatable or self:IsComplete(questTitle)) then
+            return SelectGossipAvailableQuest(id) or true
         end
     end
 end
 
 function Addon:ChoiceOption(...)
-    for i = 1, select('#', ...), 2 do
-        local name, type = select(i, ...)
+    for id, index in self:Iterate(2, select('#', ...)) do
+        print(id, index)
+        local name, type = select(index, ...)
         if type == 'battlemaster' then
-            return SelectGossipOption(math.floor(i / 2) + 1) or true
+            return SelectGossipOption(id) or true
         end
     end
 end
