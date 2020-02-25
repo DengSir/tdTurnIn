@@ -91,7 +91,7 @@ end
 
 local function ItemCount(id, count)
     return function()
-        return GetItemCount(id) >= 3
+        return GetItemCount(id) >= count
     end
 end
 
@@ -99,7 +99,10 @@ local repeats = { --
     ['铭记奥特兰克！'] = ItemCount(20560, 3),
     ['战歌峡谷之战'] = ItemCount(20558, 3),
     ['水晶簇'] = ItemCount(17423, 5),
-    ['森林之王伊弗斯'] = ItemCount(17423, 1),
+    ['森林之王伊弗斯'] = ItemCount(0, 1),
+    ['爪牙的天灾石'] = ItemCount(12840, 20),
+    ['侵略者的天灾石'] = ItemCount(12841, 10),
+    ['堕落者的天灾石'] = ItemCount(12843, 1),
 }
 
 function Addon:IsComplete(questTitle)
@@ -128,7 +131,6 @@ end
 function Addon:ChoiceAvailableQuest(...)
     for id, index in self:Iterate(7, select('#', ...)) do
         local questTitle, _, isTrivial, frequency, isRepeatable, isLegendary, isIgnored = select(index, ...)
-        print(id, index, questTitle)
         if not isIgnored and (not isRepeatable or self:IsComplete(questTitle)) then
             return SelectGossipAvailableQuest(id) or true
         end
@@ -137,7 +139,6 @@ end
 
 function Addon:ChoiceOption(...)
     for id, index in self:Iterate(2, select('#', ...)) do
-        print(id, index)
         local name, type = select(index, ...)
         if type == 'battlemaster' then
             return SelectGossipOption(id) or true
@@ -190,7 +191,10 @@ function Addon.Handle:QUEST_GREETING()
                 return SelectAvailableQuest(i)
             end
         else
-            return SelectAvailableQuest(i)
+            local questTitle = GetAvailableTitle(i)
+            if self:IsComplete(questTitle) then
+                return SelectAvailableQuest(i)
+            end
         end
     end
 end
