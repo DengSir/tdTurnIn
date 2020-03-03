@@ -1,13 +1,19 @@
---[[
-Addon.lua
-@Author  : DengSir (tdaddon@163.com)
-@Link    : https://dengsir.github.io
-]]
- local ns = select(2, ...)
+
+-- Addon.lua
+-- @Author  : DengSir (tdaddon@163.com)
+-- @Link    : https://dengsir.github.io
+
+local ns = select(2, ...)
 local IGNORED_NPCS = ns.IGNORED_NPCS
 local L = LibStub('AceLocale-3.0'):GetLocale('tdTurnIn')
 
+---@class tdTurnIn
+---@field Handle tdTurnIn
+---@field db any
+---@field repeatables any[]
 local Addon = LibStub('AceAddon-3.0'):NewAddon('tdTurnIn', 'AceEvent-3.0')
+
+local HAS_DAILY = not not QuestIsDaily
 
 Addon.Handle = setmetatable({}, {
     __newindex = function(t, k, fn)
@@ -22,9 +28,14 @@ Addon.Handle = setmetatable({}, {
 })
 
 function Addon:OnInitialize()
-    local defaults = {profile = {turnInDaily = true, turnInRepeat = true, enable = true, modifierKey = 'shift'}}
+    local defaults = {
+        global = {repeatables = {}},
+        profile = {turnInDaily = true, turnInRepeat = true, enable = true, modifierKey = 'shift'},
+    }
 
     self.db = LibStub('AceDB-3.0'):New('TDDB_TURNIN', defaults, true)
+
+    self.repeatables = self.db.global.repeatables
 
     local options = {
         type = 'group',
@@ -89,24 +100,22 @@ function Addon:GetSetting(key)
     return self.db.profile[key]
 end
 
-local function ItemCount(id, count)
-    return function()
-        return GetItemCount(id) >= count
+function Addon:IsComplete(questTitle)
+    local data = self.repeatables[questTitle]
+    if type(data) ~= 'table' then
+        return
     end
+
+    for id, count in pairs(data) do
+        if GetItemCount(id) < count then
+            return false
+        end
+    end
+    return true
 end
 
-local repeats = { --
-    ['铭记奥特兰克！'] = ItemCount(20560, 3),
-    ['战歌峡谷之战'] = ItemCount(20558, 3),
-    ['水晶簇'] = ItemCount(17423, 5),
-    ['森林之王伊弗斯'] = ItemCount(0, 1),
-    ['爪牙的天灾石'] = ItemCount(12840, 20),
-    ['侵略者的天灾石'] = ItemCount(12841, 10),
-    ['堕落者的天灾石'] = ItemCount(12843, 1),
-}
-
-function Addon:IsComplete(questTitle)
-    return not repeats[questTitle] or repeats[questTitle]()
+function Addon:IsQuestRepeatable(questTitle)
+    return self.repeatables[questTitle]
 end
 
 function Addon:Iterate(step, total)
@@ -131,7 +140,13 @@ end
 function Addon:ChoiceAvailableQuest(...)
     for id, index in self:Iterate(7, select('#', ...)) do
         local questTitle, _, isTrivial, frequency, isRepeatable, isLegendary, isIgnored = select(index, ...)
-        if not isIgnored and (not isRepeatable or self:IsComplete(questTitle)) then
+        if isRepeatable then
+            self.repeatables[questTitle] = self.repeatables[questTitle] or true
+        end
+
+        print(questTitle, isRepeatable)
+
+        if not isIgnored and (not isRepeatable or (self:IsRepeatAllow(isRepeatable) and self:IsComplete(questTitle))) then
             return SelectGossipAvailableQuest(id) or true
         end
     end
@@ -163,6 +178,29 @@ function Addon.Handle:QUEST_DETAIL()
 end
 
 function Addon.Handle:QUEST_PROGRESS()
+    if GetQuestMoneyToGet() > 0 then
+        return
+    end
+    local questTitle = GetTitleText()
+    local isRepeatable = self:IsQuestRepeatable(questTitle)
+
+    if isRepeatable then
+        self.repeatables[questTitle] = {}
+
+        for i = 1, GetNumQuestItems() do
+            if IsQuestItemHidden(i) == 0 then
+                local id = tonumber(GetQuestItemLink('required', i):match('item:(%d+)'))
+                local name, icon, count = GetQuestItemInfo('required', i)
+
+                self.repeatables[questTitle][id] = count
+            end
+        end
+    end
+
+    if not self:IsRepeatAllow(isRepeatable) then
+        return
+    end
+
     if IsQuestCompletable() then
         CompleteQuest()
     end
@@ -192,7 +230,7 @@ function Addon.Handle:QUEST_GREETING()
             end
         else
             local questTitle = GetAvailableTitle(i)
-            if self:IsComplete(questTitle) then
+            if questTitle then
                 return SelectAvailableQuest(i)
             end
         end
