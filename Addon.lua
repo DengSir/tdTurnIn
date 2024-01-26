@@ -128,42 +128,48 @@ function Addon:Iterate(step, total)
     end)
 end
 
-function Addon:ChoiceActiveQuest(...)
-    for id, index in self:Iterate(6, select('#', ...)) do
-        local _, _, _, isComplete = select(index, ...)
-        if isComplete then
-            return SelectGossipActiveQuest(id) or true
+function Addon:ChoiceActiveQuest(quests)
+    for id, quest in ipairs(quests) do
+        if quest.isComplete then
+            return C_GossipInfo.SelectActiveQuest(id) or true
         end
     end
 end
 
-function Addon:ChoiceAvailableQuest(...)
-    for id, index in self:Iterate(7, select('#', ...)) do
-        local questTitle, _, isTrivial, frequency, isRepeatable, isLegendary, isIgnored = select(index, ...)
-        if isRepeatable then
-            self.repeatables[questTitle] = self.repeatables[questTitle] or true
+function Addon:ChoiceAvailableQuest(quests)
+    for id, quest in ipairs(quests) do
+        if quest.repeatable then
+            self.repeatables[quest.title] = self.repeatables[quest.title] or true
         end
 
-        print(questTitle, isRepeatable)
+        print(quest.title, quest.repeatable)
 
-        if not isIgnored and (not isRepeatable or (self:IsRepeatAllow(isRepeatable) and self:IsComplete(questTitle))) then
-            return SelectGossipAvailableQuest(id) or true
+        if not quest.isIgnored and (not quest.repeatable or (self:IsRepeatAllow(quest.repeatable) and self:IsComplete(quest.title))) then
+            return C_GossipInfo.SelectAvailableQuest(id) or true
         end
     end
 end
 
-function Addon:ChoiceOption(...)
-    for id, index in self:Iterate(2, select('#', ...)) do
-        local name, type = select(index, ...)
-        if type == 'battlemaster' then
-            return SelectGossipOption(id) or true
+local SelectOption = {
+    ICON = {
+        [132050] = true, -- 银行
+        [132057] = true, -- 鸟点
+        [132058] = true, -- 专业技能
+        [132060] = true, -- 商店
+        [528409] = true, -- 拍卖行
+    }
+}
+function Addon:ChoiceOption(options)
+    for i, option in ipairs(options) do
+        if option.name == 'battlemaster' or SelectOption.ICON[option.icon] then
+            return C_GossipInfo.SelectOption(option.gossipOptionID) or true
         end
     end
 end
 
 function Addon.Handle:GOSSIP_SHOW()
-    return self:ChoiceActiveQuest(GetGossipActiveQuests()) or self:ChoiceAvailableQuest(GetGossipAvailableQuests()) or
-               self:ChoiceOption(GetGossipOptions())
+    return self:ChoiceActiveQuest(C_GossipInfo.GetActiveQuests()) or self:ChoiceAvailableQuest(C_GossipInfo.GetAvailableQuests()) or
+               self:ChoiceOption(C_GossipInfo.GetOptions())
 end
 
 function Addon.Handle:QUEST_DETAIL()
