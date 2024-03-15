@@ -131,7 +131,7 @@ end
 function Addon:ChoiceActiveQuest(quests)
     for id, quest in ipairs(quests) do
         if quest.isComplete then
-            return C_GossipInfo.SelectActiveQuest(id) or true
+            return C_GossipInfo.SelectActiveQuest(quest.questID) or true
         end
     end
 end
