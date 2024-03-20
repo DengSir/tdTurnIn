@@ -1,0 +1,23 @@
+{
+  "name": "tdturnin",
+  "version": "0.0.1",
+  "description": "Turn in all",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "World",
+    "of",
+    "warcraft"
+  ],
+  "author": "Dencer",
+  "license": "MIT",
+  "wow": {
+    "name": "tdTurnIn",
+    "curse_id": 0,
+    "builds": {
+      "classic": "11501"
+    }
+  }
+}
