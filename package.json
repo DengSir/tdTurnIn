@@ -17,7 +17,9 @@
     "name": "tdTurnIn",
     "curse_id": 0,
     "builds": {
-      "classic": "11501"
+      "Vanilla": "11502",
+      "Wrath": "40400",
+      "Mainline": "100207"
     }
   }
 }

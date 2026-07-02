@@ -1,8 +1,6 @@
-
 -- Addon.lua
 -- @Author  : DengSir (tdaddon@163.com)
 -- @Link    : https://dengsir.github.io
-
 local ns = select(2, ...)
 local IGNORED_NPCS = ns.IGNORED_NPCS
 local L = LibStub('AceLocale-3.0'):GetLocale('tdTurnIn')
@@ -15,6 +13,7 @@ local Addon = LibStub('AceAddon-3.0'):NewAddon('tdTurnIn', 'AceEvent-3.0')
 
 local HAS_DAILY = not not QuestIsDaily
 
+---@class tdTurnIn
 Addon.Handle = setmetatable({}, {
     __newindex = function(t, k, fn)
         if type(fn) ~= 'function' then
@@ -118,34 +117,40 @@ function Addon:IsQuestRepeatable(questTitle)
     return self.repeatables[questTitle]
 end
 
-function Addon:Iterate(step, total)
-    local count = total / step
-    return coroutine.wrap(function()
-        for i = count, 1, -1 do
-            local s = step * (i - 1) + 1
-            coroutine.yield(i, s)
-        end
-    end)
-end
-
 function Addon:ChoiceActiveQuest(quests)
-    for id, quest in ipairs(quests) do
-        if quest.isComplete then
+    for _, quest in ipairs(quests) do
+        if quest.isComplete or #C_QuestLog.GetQuestObjectives(quest.questID) == 0 then
             return C_GossipInfo.SelectActiveQuest(quest.questID) or true
         end
     end
 end
 
+function Addon:CheckAvailableQuest(quest)
+    if quest.isIgnored then
+        return false
+    end
+    if quest.frequency == Enum.QuestFrequency.Default then
+        return true
+    end
+    if quest.frequency == Enum.QuestFrequency.Daily or quest.frequency == Enum.QuestFrequency.Weekly then
+        return self:GetSetting('turnInDaily')
+    end
+    if not quest.repeatable then
+        return true
+    end
+    if self:IsRepeatAllow(quest.repeatable) then
+        return self:IsComplete(quest.title)
+    end
+end
+
 function Addon:ChoiceAvailableQuest(quests)
-    for id, quest in ipairs(quests) do
+    for _, quest in ipairs(quests) do
         if quest.repeatable then
             self.repeatables[quest.title] = self.repeatables[quest.title] or true
         end
 
-        print(quest.title, quest.repeatable)
-
-        if not quest.isIgnored and (not quest.repeatable or (self:IsRepeatAllow(quest.repeatable) and self:IsComplete(quest.title))) then
-            return C_GossipInfo.SelectAvailableQuest(id) or true
+        if self:CheckAvailableQuest(quest) then
+            return C_GossipInfo.SelectAvailableQuest(quest.questID) or true
         end
     end
 end
@@ -157,25 +162,34 @@ local SelectOption = {
         [132058] = true, -- 专业技能
         [132060] = true, -- 商店
         [528409] = true, -- 拍卖行
-    }
+    },
+    SPELL = {
+        [62722] = true, -- Tournament - Mounted Melee - GOSSIP - Initiate Combat
+    },
 }
+
+local AutoChoices = {
+    [45724] = true, -- 冠军的钱包
+}
+
 function Addon:ChoiceOption(options)
     for i, option in ipairs(options) do
-        if option.name == 'battlemaster' or SelectOption.ICON[option.icon] then
+        if option.name == 'battlemaster' or SelectOption.ICON[option.icon] or SelectOption.SPELL[option.spellID] then
             return C_GossipInfo.SelectOption(option.gossipOptionID) or true
         end
     end
 end
 
 function Addon.Handle:GOSSIP_SHOW()
-    return self:ChoiceActiveQuest(C_GossipInfo.GetActiveQuests()) or self:ChoiceAvailableQuest(C_GossipInfo.GetAvailableQuests()) or
+    return self:ChoiceActiveQuest(C_GossipInfo.GetActiveQuests()) or
+               self:ChoiceAvailableQuest(C_GossipInfo.GetAvailableQuests()) or
                self:ChoiceOption(C_GossipInfo.GetOptions())
 end
 
 function Addon.Handle:QUEST_DETAIL()
-    if not self:GetSetting('turnInDaily') and (QuestIsDaily() or QuestIsWeekly()) then
-        return
-    end
+    -- if not self:GetSetting('turnInDaily') and (QuestIsDaily() or QuestIsWeekly()) then
+    --     return
+    -- end
     if QuestGetAutoAccept and QuestGetAutoAccept() then
         CloseQuest()
     else
@@ -213,8 +227,19 @@ function Addon.Handle:QUEST_PROGRESS()
 end
 
 function Addon.Handle:QUEST_COMPLETE()
-    if GetNumQuestChoices() <= 1 then
+    local choices = GetNumQuestChoices()
+    if not choices or choices <= 1 then
         GetQuestReward(1)
+        return
+    end
+
+    for i = 1, choices do
+        local link = GetQuestItemLink('choice', i)
+        local itemId = link and tonumber(link:match('item:(%d+)'))
+        if AutoChoices[itemId] then
+            GetQuestReward(i)
+            return
+        end
     end
 end
 
@@ -246,7 +271,7 @@ end
 function Addon:IsNpcIgnored()
     local guid = UnitGUID('npc')
     if not guid then
-        return true
+        return false
     end
 
     local id = tonumber(guid:match('.-%-%d+%-%d+%-%d+%-%d+%-(%d+)'))
